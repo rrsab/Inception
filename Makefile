@@ -10,7 +10,7 @@ F_BLUE		= \033[34m
 #   curl mariadb:9000
 #	curl nginx:443
 
-PATH_DIR = ./data ./data/db ./data/www
+PATH_DIR = ./data ./data/db ./data/www ./data/adminer
 
 all:generation_envfile dns-host-add
 	@mkdir ${PATH_DIR} 2>/dev/null || true
@@ -19,6 +19,9 @@ all:generation_envfile dns-host-add
 
 up:
 	sudo docker-compose -f  srcs/docker-compose.yml up -d 
+
+down:
+	sudo docker-compose -f  srcs/docker-compose.yml down 
 
 #### Nginx ####
 enter_nginx:
@@ -59,9 +62,12 @@ recreatedir:
 	@sudo rm -rf ${PATH_DIR} 2>/dev/null
 	@mkdir ${PATH_DIR} 2>/dev/null
 
-## останавливает все контейнейр
+## останавливает все контейнейры
 stop:
 	sudo docker stop $$(sudo docker ps -aq) 2>/dev/null || echo " "
+## запускаем все контейнейры
+start:
+	sudo docker start $$(sudo docker ps -aq) 2>/dev/null || echo " "
 ## удаляет контейнеры
 remote:
 	sudo docker rm $$(sudo docker ps -aq) 2>/dev/null || echo " "
@@ -95,11 +101,16 @@ generation_envfile:
 	@echo "Generation .env"
 	@>  ${ENV}
 	@echo "DOMIAN_NAME=${NICKNAME}.42.fr" >> ${ENV}
-	@echo "DB_NAME=wordpress" >> ${ENV}
+	@echo "DB_WP_NAME=wordpress" >> ${ENV}
+	@echo "DB_ROOT_PASSWORD=root" >> ${ENV}
+	@echo "DB_ROOT_USER=root" >> ${ENV}
 	@echo "DB_USER=${NICKNAME}" >> ${ENV}
-	@echo "DB_PASSWORD=${NICKNAME}" >> ${ENV}
+	@echo "DB_USER_PASSWORD=${NICKNAME}" >> ${ENV}
 	@echo "DB_HOST=mariadb" >> ${ENV}
 	@echo "DB_PREFIX=wp_" >> ${ENV}
+	@echo "FTP_USER=ftpsalyce" >> ${ENV}
+	@echo "FTP_PASS=ftpsalyce" >> ${ENV}
+	@echo "FTP_GROUP=www" >> ${ENV}
 
 code:
 	@echo " ~~~~~~~~~~~~~~~~"

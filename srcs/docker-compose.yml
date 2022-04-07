@@ -1,4 +1,3 @@
-
 #### Настройка нашего мини сетевого окружения
 # Работает наподобии DNS
 
@@ -11,32 +10,39 @@
 ### ports -> для вытаскивания наружу (HOST: CONTAINER)
 ### expose -> Открывайте порты, не публикуя их на хост-машине - они будут доступны только для связанных сервисов. Можно указать только внутренний порт.
 ### enviroment -> .env файл берет оттуда переменные окружения (из файла доступны только в docker file но не в контейнерах) и потом указываем что в контейнерах доступно
-
 version: "3.4"
 services:
     #Nginx Service
     nginx:
-        restart: always
-        build: ./requirements/nginx
-        container_name: nginx
-        env_file: .env
         image: nginx
         # Запускаем после запуска ...
         depends_on:
             - wordpress
+        build:
+            context: ./requirements/nginx
+        container_name: nginx
+        env_file: .env
         ports:
             - "443:443"
         networks:
             - inception_net
         volumes:
-        - inception-volume:/var/www/html
+            - inception-volume:/var/www/html
+        restart: always
+
 
     # Mariadb Server
     mariadb:
-        restart: always
-        build: ./requirements/mariadb
-        container_name: mariadb
         image: mariadb
+        container_name: mariadb
+        restart: always
+        build:
+            context: ./requirements/mariadb
+            args:
+              - DB_WP_NAME=${DB_WP_NAME}
+              - DB_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
+              - DB_USER_PASSWORD=${DB_USER_PASSWORD}
+              - DB_USER=${DB_USER}
         #healthcheck:
         #    test: mysqladmin ping -h 127.0.0.1 -u salyce --password=dbpass
         #    interval: 5s
@@ -56,7 +62,8 @@ services:
     # WordPress
     wordpress:
         restart: always
-        build: ./requirements/wordpress
+        build:
+            context: ./requirements/wordpress
         container_name: wordpress
         env_file: .env
         image: wordpress
@@ -70,7 +77,98 @@ services:
         volumes:
         - inception-volume:/var/www/html
 
+    # FTP
+    ftp:
+        restart: always
+        image: ftp
+        build:
+            context: ./requirements/bonus/ftp
+        container_name: ftp
+        env_file: .env
+        # Запускаем после запуска ...
+        depends_on:
+            - mariadb
+        ports:
+            - "20:20"
+            - "21:21"
+            - "60007:60007"
+        networks:
+            - inception_net
+        volumes:
+        - inception-volume:/var/www/html
+    # REDIS
+    redis:
+        image: redis
+        build:
+            context: ./requirements/bonus/redis
+        depends_on:
+            - mariadb
+        container_name: redis
+        expose:
+            - "6379"
+#        ports:
+#            - '6379:6379'
+        networks:
+            - inception_net
+        restart: always
+    # ADMINER
+    adminer:
+        image: adminer
+        env_file: .env
+        build:
+            context: ./requirements/bonus/adminer
+        depends_on:
+            - wordpress
+        container_name: adminer
+        expose:
+            - "8080"
+#        ports:
+#            - "5005:5005"
+        volumes:
+            - adminer-volume:/var/www/html
+        networks:
+            - inception_net
+        restart: always
       
+    #WebSite
+    website:
+        image: website
+        # Запускаем после запуска ...
+        depends_on:
+            - website
+        build:
+            context: ./requirements/bonus/website
+        depends_on:
+            - nginx
+        container_name: website
+        env_file: .env
+        expose:
+            - "443"
+#        ports:
+#           - "4430:443"
+        networks:
+            - inception_net
+        restart: always
+
+
+    # GRAFANA
+    grafana:
+        image: grafana
+        env_file: .env
+        build:
+            context: ./requirements/bonus/grafana
+        depends_on:
+            - adminer
+        container_name: grafana
+        ports:
+            - "3000:3000"
+            - "8086:8086"
+        volumes:
+            - adminer-volume:/var/lib/grafana
+        networks:
+            - inception_net
+        restart: always
+
 
 ### inception_net -> Название Сети  (Прописываем во всех контейнерах)
 networks:
@@ -89,6 +187,15 @@ volumes:
             type: ext4
             o: bind
             device: /home/salyce/data/www
+    ## Здесб хранится  данные adminer
+    adminer-volume:
+        #Задать имя тому
+        name: adminer-volume
+        driver: local
+        driver_opts:
+            type: ext4
+            o: bind
+            device: /home/salyce/data/adminer
     ### Здесь храниться mysql
     db-volume:
         name: db-volume

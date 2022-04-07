@@ -24,6 +24,13 @@ RUN rm /etc/nginx/sites-enabled/default
 #COPY ./conf/default.conf /etc/nginx/sites-available/default
 #COPY ./conf/nginx.conf /etc/nginx/nginx.conf
 
+RUN apt-get install gpg wget -y
+RUN wget -qO- https://repos.influxdata.com/influxdb.key |  apt-key add -
+RUN echo "deb https://repos.influxdata.com/debian buster stable" |  tee -a /etc/apt/sources.list.d/influxdb.list
+RUN apt-get update -y
+RUN apt-get install influxdb telegraf -y
+
+COPY ./conf/telegraf.conf /etc/telegraf/telegraf.conf
 
 EXPOSE 443
 
